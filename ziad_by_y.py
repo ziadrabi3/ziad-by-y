@@ -16,7 +16,7 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------------
-# 🛠️️ مفتاح الصيانة (التطبيق مغلق تماماً أمام العملاء، والأدمن وحده من يستطيع الدخول)
+# 🛠 مفتاح الصيانة (التطبيق مغلق تماماً أمام العملاء، والأدمن وحده من يستطيع الدخول)
 # -------------------------------------------------------------------------
 MAINTENANCE_MODE = True 
 
@@ -217,7 +217,7 @@ else:
                             if col_act1.button("✅ تفعيل الحساب الآن", key=f"quick_act_{phone}", use_container_width=True):
                                 data['active'] = True
                                 data['sub_type'] = "تم التفعيل بواسطة الأدمن"
-                                data['expiry_date'] = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+                                data['expiry_date'] = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-d")
                                 st.success(f"تم تفعيل حساب {data['name']} بنجاح!")
                                 st.rerun()
                         
@@ -228,17 +228,20 @@ else:
                             st.rerun()
         st.divider()
 
-    # شاشة الأدمن الخاصة بتفريغ الريكوردات
+    # شاشة الأدمن الخاصة بتفريغ الريكوردات مع توجيه لاختيار الملفات من الواتساب
     st.success("🛠️ **أنت في لوحة التحكم الخاصة بك كأدمن.**")
     st.subheader("📄 تطبيق التشييك وتفريغ الريكوردات")
-    excel_file = st.file_uploader("1️⃣ اختر ملف التشييك (Excel)", type=["xlsx", "xls"])
-    audio_file = st.file_uploader("2️⃣ اختر الريكورد الصوتي", type=["mp3", "wav", "m4a", "ogg"])
+    
+    st.info("💡 **ملاحظة لاختيار الملفات:** يمكنك اختيار ملف الإكسيل والريكورد الصوتي مباشرة من مجلدات **الواتساب، التيليجرام، أو محادثاتك** عبر نافذة اختيار الملفات في هاتفك أو حاسوبك.")
+    
+    excel_file = st.file_uploader("1️⃣ اختر ملف التشييك (Excel - يمكنك جلبه من الواتساب/التيليجرام)", type=["xlsx", "xls"])
+    audio_file = st.file_uploader("2️⃣ اختر الريكورد الصوتي (من محادثات الواتساب أو ملفات الصوت)", type=["mp3", "wav", "m4a", "ogg"])
     
     if st.button("🚀 بدء المعالجة وتفريغ الملف", use_container_width=True):
         if excel_file and audio_file:
             st.success("تمت المعالجة بنجاح!")
             st.download_button(
-                label="⬇️ تحميل ملف التشييك المكتمل (Excel)",
+                label="⬇️️ تحميل ملف التشييك المكتمل (Excel)",
                 data=excel_file.getvalue(),
                 file_name="ملف_التشييك_المكتمل.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
