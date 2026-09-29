@@ -15,7 +15,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# قاعدة بيانات مؤقتة للحسابات (تستوعب بلا حدود)
+# قاعدة بيانات مؤقتة للحسابات
 if "users" not in st.session_state:
     st.session_state["users"] = {
         "+201006820162": {
@@ -109,13 +109,11 @@ if not st.session_state["logged_in_user"]:
             if full_rp in st.session_state["users"]:
                 st.warning("هذا الرقم مسجل مسبقاً! قم بتسجيل الدخول مباشرة.")
             elif new_name and r_phone and new_pass:
-                # تسجيل الحساب الجديد في النظام فوراً ليرى الأدمن أن شخصاً سجل حساباً
                 st.session_state["users"][full_rp] = {
                     "name": new_name, "email": new_email, "password": new_pass,
                     "active": False, "is_admin": False, "sub_type": "في انتظار التفعيل (سجل حديثاً)",
                     "months": 0, "amount_paid": 0, "expiry_date": "غير محدد"
                 }
-                # إدخال العميل تلقائياً للموقع فور إنشائه للحساب
                 st.session_state["logged_in_user"] = full_rp
                 st.session_state["login_time"] = datetime.now()
                 st.success("تم إنشاء الحساب بنجاح!")
@@ -150,18 +148,15 @@ else:
         
     st.divider()
 
-    # --- لوحة التحكم الخاصة بالأدمن (إحصائيات شاملة + إدارة المشتركين والحسابات الجديدة) ---
+    # --- لوحة التحكم الخاصة بالأدمن ---
     if user_data.get("is_admin", False) and st.session_state["show_admin_dashboard"]:
         st.info("📊 **لوحة تحكم الأدمن الشاملة (إحصائيات ومتابعة الحسابات الجديدة)**")
         
-        # حساب إحصائيات الحسابات والزوار المسجلين بدقة
         users_list = st.session_state["users"]
-        total_registered = len(users_list) - 1  # بدون حساب الأدمن
+        total_registered = len(users_list) - 1
         pending_users = sum(1 for p, d in users_list.items() if not d.get("active") and not d.get("is_admin"))
         active_subscribers = sum(1 for p, d in users_list.items() if d.get("active") and not d.get("is_admin"))
-        total_revenue_egp = sum(d.get("amount_paid", 0) for p, d in users_list.items() if "جنيه" in str(d.get("sub_type", "")) or d.get("amount_paid", 0) > 200)
 
-        # عرض إحصائيات سريعة وواضحة للأدمن
         stat1, stat2, stat3 = st.columns(3)
         stat1.metric("👥 إجمالي الحسابات المسجلة", f"{total_registered} حساب")
         stat2.metric("⏳ حسابات بانتظار التفعيل", f"{pending_users} عميل")
@@ -178,9 +173,8 @@ else:
             an_phone = st.text_input("رقم الهاتف", key="an_phone")
             an_pass = st.text_input("كلمة السر (التي ستعطيها للعميل)", key="an_pass")
             
-            st.markdown("##### 💰 حساب المدة والمبلغ تلقائياً:")
             col_a, col_b = st.columns(2)
-            an_type = col_a.selectbox("نوع الاشتراك", ["دفع كاش / مباشر 💵", "تفعيل مجاني 🎁"], key="an_type")
+            an_type = col_a.selectbox("نوع الاشتراك", ["دفع كاش / فودافون كاش 💳", "تفعيل مجاني 🎁"], key="an_type")
             an_months = col_b.number_input("عدد الشهور المطلوبة", min_value=1, max_value=24, value=1, key="an_months")
             
             if "مصر" in an_code:
@@ -190,7 +184,7 @@ else:
                 calculated_amount = 0 if "مجاني" in an_type else (150 * an_months)
                 currency_label = "ريال سعودي"
                 
-            st.info(f"💵 **المبلغ الإجمالي المحسوب أوتوماتيكياً:** `{calculated_amount} {currency_label}` (بواقع {an_months} شهر)")
+            st.info(f"💵 **المبلغ الاجمالي المحسوب أوتوماتيكياً:** `{calculated_amount} {currency_label}` (بواقع {an_months} شهر)")
             
             if st.button("✨ إنشاء وتفعيل الحساب فوراً", use_container_width=True, type="primary"):
                 full_an_phone = f"{an_prefix}{an_phone.strip()}"
@@ -242,10 +236,25 @@ else:
 
     # --- واجهة التطبيق الاعتيادية للمستخدم (أو الأدمن) ---
     if not user_data["active"]:
-        st.warning("⚠️ اشتراكك غير مفعل حالياً! تم تسجيل حسابك بنجاح، يرجى التواصل مع الإدارة لتفعيل الخدمة.")
-        st.info("قيمة الاشتراك: 150 ريال سعودي أو 2,080 جنيه مصري للشهر الواحد.")
-        wa_url = f"https://wa.me/201006820162?text=مرحباً%20لقد%20سجلت%20حساباً%20جديداً%20وأريد%20تفعيل%20حسابي%20لرقم:%20{user_phone}"
-        st.link_button("📲 التواصل عبر واتساب لتأكيد الدفع والتفعيل", wa_url, use_container_width=True)
+        st.warning("⚠️ اشتراكك غير مفعل حالياً! تم تسجيل حسابك بنجاح في المنصة.")
+        
+        # صندوق تفاصيل الدفع والتحويل بوضوح للعميل
+        st.info("""
+        ### 💳 تفاصيل الدفع والاشتراك:
+        * **طرق الدفع المتاحة:** فودافون كاش / تحويل مباشر.
+        * **رقم التحويل (فودافون كاش):** `01006820162`
+        * **قيمة الاشتراك:** 
+          * داخل مصر: **2,080 جنيه مصري / شهر**
+          * داخل السعودية: **150 ريال سعودي / شهر**
+        
+        ---
+        ### 📲 خطوات تفعيل الحساب فوراً:
+        1. قم بتحويل قيمة الاشتراك عبر **فودافون كاش** إلى الرقم: `01006820162`.
+        2. اضغط على الزر أدناه لإرسال رسالة واتساب مرفقة بـ **"صورة سكرين شوت التحويل"** ورقم حسابك لتفعيل الخدمة فوراً:
+        """)
+        
+        wa_url = f"https://wa.me/201006820162?text=مرحباً%20زياد،%20لقد قمت بتحويل مبلغ الاشتراك عبر فودافون كاش وارسلت سكرين التحويل لتفعيل حسابي. رقمي المسجل هو: {user_phone}"
+        st.link_button("📲 إرسال سكرين التحويل والتفعيل عبر واتساب", wa_url, use_container_width=True)
     else:
         st.success(f"✅ حسابك مفعل ومتاح حتى: {user_data.get('expiry_date', 'دائم')}")
         
