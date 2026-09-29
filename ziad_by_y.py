@@ -34,11 +34,21 @@ if "users" not in st.session_state:
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 
+if "login_time" not in st.session_state:
+    st.session_state["login_time"] = None
+
 if "show_admin_dashboard" not in st.session_state:
     st.session_state["show_admin_dashboard"] = False
 
+# نظام التحقق التلقائي من انتهاء مدة الـ 3 أيام لتسجيل الدخول من جديد
+if st.session_state["logged_in_user"] and st.session_state["login_time"]:
+    if datetime.now() - st.session_state["login_time"] > timedelta(days=3):
+        st.session_state["logged_in_user"] = None
+        st.session_state["login_time"] = None
+        st.warning("انقضت 3 أيام، يرجى إعادة تسجيل الدخول لأسباب أمنية.")
+
 # =========================================================================
-# 1. شاشة ما قبل تسجيل الدخول (يظهر فيها زر 👑 Z القديم)
+# 1. شاشة ما قبل تسجيل الدخول
 # =========================================================================
 if not st.session_state["logged_in_user"]:
     col_head1, col_head2 = st.columns([8, 2])
@@ -58,6 +68,7 @@ if not st.session_state["logged_in_user"]:
             full_ap = f"+20{admin_phone.strip()}"
             if full_ap in st.session_state["users"] and st.session_state["users"][full_ap]["password"] == admin_pass:
                 st.session_state["logged_in_user"] = full_ap
+                st.session_state["login_time"] = datetime.now()
                 st.session_state["show_admin_login"] = False
                 st.success("تم تسجيل الدخول بنجاح!")
                 st.rerun()
@@ -79,6 +90,7 @@ if not st.session_state["logged_in_user"]:
             full_p = f"{prefix}{phone_in.strip()}"
             if full_p in st.session_state["users"] and st.session_state["users"][full_p]["password"] == pass_in:
                 st.session_state["logged_in_user"] = full_p
+                st.session_state["login_time"] = datetime.now()
                 st.rerun()
             else:
                 st.error("بيانات الدخول غير صحيحة")
@@ -90,24 +102,28 @@ if not st.session_state["logged_in_user"]:
         r_prefix = "+20" if "مصر" in r_code else "+966"
         r_phone = st.text_input("رقم الهاتف", key="rpi")
         new_email = st.text_input("البريد الإلكتروني")
-        new_pass = st.text_input("كلمة السر الخاصة بك", type="password", key="rwi")
+        new_pass = st.text_input("كلمة السر (موحدة لتسجيل الدخول)", type="password", key="rwi")
         
-        if st.button("إنشاء الحساب", use_container_width=True):
+        if st.button("إنشاء الحساب ودخول التطبيق", use_container_width=True):
             full_rp = f"{r_prefix}{r_phone.strip()}"
             if full_rp in st.session_state["users"]:
-                st.warning("هذا الرقم مسجل مسبقاً!")
+                st.warning("هذا الرقم مسجل مسبقاً! قم بتسجيل الدخول مباشرة.")
             elif new_name and r_phone and new_pass:
                 st.session_state["users"][full_rp] = {
                     "name": new_name, "email": new_email, "password": new_pass,
                     "active": False, "is_admin": False, "sub_type": "غير مفعل",
                     "months": 0, "amount_paid": 0, "expiry_date": "غير محدد"
                 }
-                st.success("تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن.")
+                # إدخال العميل تلقائياً للموقع فور إنشائه للحساب
+                st.session_state["logged_in_user"] = full_rp
+                st.session_state["login_time"] = datetime.now()
+                st.success("تم إنشاء الحساب بنجاح!")
+                st.rerun()
             else:
                 st.error("يرجى إكمال جميع البيانات المطلوبة")
 
 # =========================================================================
-# 2. شاشة ما بعد تسجيل الدخول (يظهر فيها زر الدولار 💲 فوق خالص على الشمال للأدمن)
+# 2. شاشة ما بعد تسجيل الدخول (أو بعد إنشاء الحساب مباشرة)
 # =========================================================================
 else:
     user_phone = st.session_state["logged_in_user"]
@@ -127,20 +143,20 @@ else:
     col_out1.write(f"مرحباً بك، **{user_data['name']}**")
     if col_out2.button("تسجيل الخروج"):
         st.session_state["logged_in_user"] = None
+        st.session_state["login_time"] = None
         st.session_state["show_admin_dashboard"] = False
         st.rerun()
         
     st.divider()
 
-    # --- لوحة التحكم الخاصة بالأدمن (تفتح عند الضغط على زر 💲 فوق) ---
+    # --- لوحة التحكم الخاصة بالأدمن ---
     if user_data.get("is_admin", False) and st.session_state["show_admin_dashboard"]:
         st.info("📊 **لوحة تحكم المشتركين وإدارة الاشتراكات التلقائية**")
         
         admin_tab1, admin_tab2 = st.tabs(["➕ إضافة مشترك يدوياً (تفعيل فوري)", "📋 إدارة المشتركين الحاليين"])
         
-        # ---------------- القسم الأول: إنشاء وتفعيل حساب يدوياً مع الحساب التلقائي للأسعار ----------------
         with admin_tab1:
-            st.subheader("إشاء وتفعيل مشترك جديد بأسعار تلقائية")
+            st.subheader("إنشاء وتفعيل مشترك جديد بأسعار تلقائية")
             an_name = st.text_input("اسم المشترك", key="an_name")
             an_code = st.selectbox("الدولة وعملة السعر", ["مصر (+20) - جنيه", "السعودية (+966) - ريال"], key="an_code")
             an_prefix = "+20" if "مصر" in an_code else "+966"
@@ -152,7 +168,6 @@ else:
             an_type = col_a.selectbox("نوع الاشتراك", ["دفع كاش / مباشر 💵", "تفعيل مجاني 🎁"], key="an_type")
             an_months = col_b.number_input("عدد الشهور المطلوبة", min_value=1, max_value=24, value=1, key="an_months")
             
-            # الحساب التلقائي المبرمج (لا يمكن للعميل أو غيره العبث به)
             if "مصر" in an_code:
                 calculated_amount = 0 if "مجاني" in an_type else (2080 * an_months)
                 currency_label = "جنيه مصري"
@@ -184,7 +199,6 @@ else:
                     st.success(f"تم إنشاء وتفعيل حساب ({an_name}) بمبلغ {calculated_amount} {currency_label} بنجاح!")
                     st.rerun()
 
-        # ---------------- القسم الثاني: تعديل المشتركين المسجلين مسبقاً ----------------
         with admin_tab2:
             users_list = st.session_state["users"]
             for phone, data in users_list.items():
