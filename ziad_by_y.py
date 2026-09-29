@@ -90,7 +90,7 @@ if not st.session_state["logged_in_user"]:
         r_prefix = "+20" if "مصر" in r_code else "+966"
         r_phone = st.text_input("رقم الهاتف", key="rpi")
         new_email = st.text_input("البريد الإلكتروني")
-        new_pass = st.text_input("كلمة السر", type="password", key="rwi")
+        new_pass = st.text_input("كلمة السر الخاصة بك", type="password", key="rwi")
         
         if st.button("إنشاء الحساب", use_container_width=True):
             full_rp = f"{r_prefix}{r_phone.strip()}"
@@ -113,7 +113,7 @@ else:
     user_phone = st.session_state["logged_in_user"]
     user_data = st.session_state["users"][user_phone]
     
-    # الهيدر المخصص بعد الدخول (العنوان يمين، وزر 💲 فوق على الشمال خالص لو كان الأدمن)
+    # الهيدر المخصص بعد الدخول
     if user_data.get("is_admin", False):
         head_c1, head_c2 = st.columns([7, 3])
         head_c1.title("🚗 تفريغ الريكوردات")
@@ -134,32 +134,40 @@ else:
 
     # --- لوحة التحكم الخاصة بالأدمن (تفتح عند الضغط على زر 💲 فوق) ---
     if user_data.get("is_admin", False) and st.session_state["show_admin_dashboard"]:
-        st.info("📊 **لوحة تحكم المشتركين وإدارة الاشتراكات**")
+        st.info("📊 **لوحة تحكم المشتركين وإدارة الاشتراكات التلقائية**")
         
-        # إنشاء قسمين (Tabs) داخل لوحة الإدارة
         admin_tab1, admin_tab2 = st.tabs(["➕ إضافة مشترك يدوياً (تفعيل فوري)", "📋 إدارة المشتركين الحاليين"])
         
-        # ---------------- القسم الأول: إنشاء وتفعيل حساب يدوياً ----------------
+        # ---------------- القسم الأول: إنشاء وتفعيل حساب يدوياً مع الحساب التلقائي للأسعار ----------------
         with admin_tab1:
-            st.subheader("إنشاء حساب جديد للعميل وتفعيله فوراً")
+            st.subheader("إشاء وتفعيل مشترك جديد بأسعار تلقائية")
             an_name = st.text_input("اسم المشترك", key="an_name")
-            an_code = st.selectbox("الدولة", ["مصر (+20)", "السعودية (+966)"], key="an_code")
+            an_code = st.selectbox("الدولة وعملة السعر", ["مصر (+20) - جنيه", "السعودية (+966) - ريال"], key="an_code")
             an_prefix = "+20" if "مصر" in an_code else "+966"
             an_phone = st.text_input("رقم الهاتف", key="an_phone")
-            an_pass = st.text_input("كلمة السر (لتعطيها للعميل ليدخل بها)", key="an_pass")
+            an_pass = st.text_input("كلمة السر (التي ستعطيها للعميل)", key="an_pass")
             
-            st.markdown("##### تفاصيل الدفع والتفعيل:")
+            st.markdown("##### 💰 حساب المدة والمبلغ تلقائياً:")
             col_a, col_b = st.columns(2)
             an_type = col_a.selectbox("نوع الاشتراك", ["دفع كاش / مباشر 💵", "تفعيل مجاني 🎁"], key="an_type")
-            an_months = col_b.number_input("المدة بالشهور", min_value=1, value=1, key="an_months")
-            an_amount = st.number_input("المبلغ المحصل (كاش)", value=0 if "مجاني" in an_type else 2080, key="an_amount")
+            an_months = col_b.number_input("عدد الشهور المطلوبة", min_value=1, max_value=24, value=1, key="an_months")
+            
+            # الحساب التلقائي المبرمج (لا يمكن للعميل أو غيره العبث به)
+            if "مصر" in an_code:
+                calculated_amount = 0 if "مجاني" in an_type else (2080 * an_months)
+                currency_label = "جنيه مصري"
+            else:
+                calculated_amount = 0 if "مجاني" in an_type else (150 * an_months)
+                currency_label = "ريال سعودي"
+                
+            st.info(f"💵 **المبلغ الإجمالي المحسوب أوتوماتيكياً:** `{calculated_amount} {currency_label}` (بواقع {an_months} شهر)")
             
             if st.button("✨ إنشاء وتفعيل الحساب فوراً", use_container_width=True, type="primary"):
                 full_an_phone = f"{an_prefix}{an_phone.strip()}"
                 if not an_name or not an_phone or not an_pass:
                     st.error("يرجى إكمال الاسم ورقم الهاتف وكلمة السر!")
                 elif full_an_phone in st.session_state["users"]:
-                    st.warning("هذا الرقم مسجل بالفعل! يمكنك تعديل اشتراكه من قسم 'إدارة المشتركين الحاليين'")
+                    st.warning("هذا الرقم مسجل بالفعل!")
                 else:
                     exp_dt = datetime.now() + timedelta(days=30 * an_months)
                     st.session_state["users"][full_an_phone] = {
@@ -170,10 +178,10 @@ else:
                         "is_admin": False,
                         "sub_type": an_type,
                         "months": an_months,
-                        "amount_paid": an_amount,
+                        "amount_paid": calculated_amount,
                         "expiry_date": exp_dt.strftime("%Y-%m-%d")
                     }
-                    st.success(f"تم إنشاء وتفعيل حساب ({an_name}) بنجاح! يمكنه تسجيل الدخول الآن برقم هاتفه وكلمة السر.")
+                    st.success(f"تم إنشاء وتفعيل حساب ({an_name}) بمبلغ {calculated_amount} {currency_label} بنجاح!")
                     st.rerun()
 
         # ---------------- القسم الثاني: تعديل المشتركين المسجلين مسبقاً ----------------
@@ -182,25 +190,9 @@ else:
             for phone, data in users_list.items():
                 if not data.get("is_admin", False):
                     with st.expander(f"👤 {data['name']} ({phone}) — {'✅ مفعل' if data['active'] else '❌ غير مفعل'}"):
-                        st.write(f"النوع الحالي: {data.get('sub_type', 'غير محدد')} | ينتهي في: {data.get('expiry_date', 'غير محدد')}")
+                        st.write(f"النوع الحالي: {data.get('sub_type', 'غير محدد')} | مدفوع: {data.get('amount_paid', 0)} | ينتهي في: {data.get('expiry_date', 'غير محدد')}")
                         
-                        sub_col1, sub_col2 = st.columns(2)
-                        chosen_type = sub_col1.selectbox("نوع الاشتراك", ["اشتراك مدفوع 💳", "اشتراك مجاني 🎁"], key=f"st_{phone}")
-                        chosen_months = sub_col2.number_input("عدد الشهور", min_value=1, max_value=24, value=1, key=f"sm_{phone}")
-                        paid_money = st.number_input("المبلغ المحول", value=0 if "مجاني" in chosen_type else 2080, key=f"pm_{phone}")
-                        
-                        btn_act, btn_deact = st.columns(2)
-                        if btn_act.button("✅ تفعيل الحساب وتحديد المدة", key=f"act_b_{phone}", use_container_width=True):
-                            data["active"] = True
-                            data["sub_type"] = chosen_type
-                            data["months"] = chosen_months
-                            data["amount_paid"] = paid_money
-                            exp_dt = datetime.now() + timedelta(days=30 * chosen_months)
-                            data["expiry_date"] = exp_dt.strftime("%Y-%m-%d")
-                            st.success(f"تم تفعيل حساب {data['name']} بنجاح!")
-                            st.rerun()
-                            
-                        if btn_deact.button("🚫 إيقاف الحساب", key=f"deact_b_{phone}", use_container_width=True):
+                        if st.button("🚫 إيقاف الحساب", key=f"deact_b_{phone}", use_container_width=True):
                             data["active"] = False
                             data["sub_type"] = "متوقف"
                             st.warning(f"تم إيقاف حساب {data['name']}")
@@ -210,7 +202,7 @@ else:
     # --- واجهة التطبيق الاعتيادية للمستخدم (أو الأدمن) ---
     if not user_data["active"]:
         st.warning("⚠️ اشتراكك غير مفعل حالياً!")
-        st.info("قيمة الاشتراك: 150 ريال سعودي (أو 2,080 جنيه مصري).")
+        st.info("قيمة الاشتراك: 150 ريال سعودي أو 2,080 جنيه مصري للشهر الواحد.")
         wa_url = f"https://wa.me/201006820162?text=مرحباً%20أريد%20تفعيل%20حسابي%20لرقم:%20{user_phone}"
         st.link_button("📲 التواصل عبر واتساب لتأكيد الدفع والتفعيل", wa_url, use_container_width=True)
     else:
