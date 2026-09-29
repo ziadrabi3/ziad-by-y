@@ -15,6 +15,11 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
+# -------------------------------------------------------------------------
+# 🛠️️ مفتاح الصيانة (التطبيق مغلق تماماً أمام العملاء، والأدمن وحده من يستطيع الدخول)
+# -------------------------------------------------------------------------
+MAINTENANCE_MODE = True 
+
 # قاعدة بيانات مؤقتة للحسابات
 if "users" not in st.session_state:
     st.session_state["users"] = {
@@ -40,12 +45,11 @@ if "login_time" not in st.session_state:
 if "show_admin_dashboard" not in st.session_state:
     st.session_state["show_admin_dashboard"] = False
 
-# نظام التحقق التلقائي من انتهاء مدة الـ 3 أيام لتسجيل الدخول من جديد
-if st.session_state["logged_in_user"] and st.session_state["login_time"]:
-    if datetime.now() - st.session_state["login_time"] > timedelta(days=3):
+# منع أي عميل عادي من البقاء مسجلاً أثناء الصيانة، وجعل الدخول مقتصرًا على الأدمن فقط
+if st.session_state["logged_in_user"]:
+    current_check_user = st.session_state["users"].get(st.session_state["logged_in_user"], {})
+    if MAINTENANCE_MODE and not current_check_user.get("is_admin", False):
         st.session_state["logged_in_user"] = None
-        st.session_state["login_time"] = None
-        st.warning("انقضت 3 أيام، يرجى إعادة تسجيل الدخول لأسباب أمنية.")
 
 # =========================================================================
 # 1. شاشة ما قبل تسجيل الدخول
@@ -58,88 +62,79 @@ if not st.session_state["logged_in_user"]:
         if st.button("👑 Z", help="دخول الأدمن"):
             st.session_state["show_admin_login"] = not st.session_state.get("show_admin_login", False)
 
-    # نموذج دخول الأدمن عبر زر Z
+    # نموذج دخول الأدمن عبر زر Z (متاح حصرياً لك)
     if st.session_state.get("show_admin_login", False):
-        st.info("🔐 **تسجيل دخول الأدمن**")
+        st.info("🔐 **تسجيل دخول الأدمن (متاح لك وحدك حالياً)**")
         admin_phone = st.text_input("رقم هاتف الأدمن (بدون الصفر)", value="1006820162", key="ap")
         admin_pass = st.text_input("كلمة السر", type="password", key="appwd")
         
         if st.button("دخول كأدمن 🚀", use_container_width=True):
             full_ap = f"+20{admin_phone.strip()}"
-            if full_ap in st.session_state["users"] and st.session_state["users"][full_ap]["password"] == admin_pass:
+            if full_ap in st.session_state["users"] and st.session_state["users"][full_ap]["password"] == admin_pass and st.session_state["users"][full_ap].get("is_admin", False):
                 st.session_state["logged_in_user"] = full_ap
                 st.session_state["login_time"] = datetime.now()
                 st.session_state["show_admin_login"] = False
-                st.success("تم تسجيل الدخول بنجاح!")
+                st.success("تم تسجيل دخول الأدمن بنجاح!")
                 st.rerun()
             else:
-                st.error("رقم الهاتف أو كلمة السر غير صحيحة")
+                st.error("بيانات الأدمن غير صحيحة أو الحساب ليس مديراً للنظام")
         st.divider()
 
-    # تبويبات الدخول وإنشاء الحساب للعملاء
+    st.warning("⚠️ **تنبيه:** الموقع حالياً في فترة الصيانة وتجهيز الإطلاق. تسجيل الدخول للعملاء متوقف تماماً، ومتاح فقط **لإنشاء حسابات جديدة** لتسجيل أسمائكم.")
+
+    # تبويبات الدخول وإنشاء الحساب
     tab1, tab2 = st.tabs(["تسجيل الدخول", "إنشاء حساب جديد"])
     
     with tab1:
         st.subheader("تسجيل دخول العملاء")
-        c_code = st.selectbox("الدولة", ["مصر (+20)", "السعودية (+966)"], key="cl")
-        prefix = "+20" if "مصر" in c_code else "+966"
-        phone_in = st.text_input("رقم الهاتف", key="pli")
-        pass_in = st.text_input("كلمة السر", type="password", key="pwi")
-        
-        if st.button("دخول", use_container_width=True):
-            full_p = f"{prefix}{phone_in.strip()}"
-            if full_p in st.session_state["users"] and st.session_state["users"][full_p]["password"] == pass_in:
-                st.session_state["logged_in_user"] = full_p
-                st.session_state["login_time"] = datetime.now()
-                st.rerun()
-            else:
-                st.error("بيانات الدخول غير صحيحة")
+        st.error("🔒 تسجيل الدخول مغلق حالياً لجميع العملاء حتى يتم الإطلاق الرسمي.")
                 
     with tab2:
-        st.subheader("إنشاء حساب جديد")
-        new_name = st.text_input("الاسم بالكامل")
+        st.subheader("إنشاء حساب جديد (متاح لتسجيل اسمك الآن)")
+        new_name = st.text_input("الاسم بالكامل", key="rn_input")
         r_code = st.selectbox("الدولة", ["مصر (+20)", "السعودية (+966)"], key="cr")
         r_prefix = "+20" if "مصر" in r_code else "+966"
         r_phone = st.text_input("رقم الهاتف", key="rpi")
-        new_email = st.text_input("البريد الإلكتروني")
-        new_pass = st.text_input("كلمة السر (موحدة لتسجيل الدخول)", type="password", key="rwi")
         
-        if st.button("إنشاء الحساب ودخول التطبيق", use_container_width=True):
+        if st.button("تسجيل وحفظ الحساب 📝", use_container_width=True):
             full_rp = f"{r_prefix}{r_phone.strip()}"
             if full_rp in st.session_state["users"]:
-                st.warning("هذا الرقم مسجل مسبقاً! قم بتسجيل الدخول مباشرة.")
-            elif new_name and r_phone and new_pass:
+                st.warning("هذا الرقم مسجل مسبقاً!")
+            elif new_name and r_phone:
                 st.session_state["users"][full_rp] = {
-                    "name": new_name, "email": new_email, "password": new_pass,
-                    "active": False, "is_admin": False, "sub_type": "في انتظار التفعيل (سجل حديثاً)",
-                    "months": 0, "amount_paid": 0, "expiry_date": "غير محدد"
+                    "name": new_name, 
+                    "email": "مسجل أثناء الصيانة", 
+                    "password": "123",
+                    "active": False, 
+                    "is_admin": False, 
+                    "sub_type": "سجل أثناء الصيانة",
+                    "months": 0, 
+                    "amount_paid": 0, 
+                    "expiry_date": "قيد الانتظار"
                 }
-                st.session_state["logged_in_user"] = full_rp
-                st.session_state["login_time"] = datetime.now()
-                st.success("تم إنشاء الحساب بنجاح!")
-                st.rerun()
+                st.success(f"مرحباً بك يا {new_name}! تم حفظ حسابك بنجاح، وستظهر بياناتك لدى الإدارة فوراً.")
             else:
-                st.error("يرجى إكمال جميع البيانات المطلوبة")
+                st.error("يرجى إدخال الاسم ورقم الهاتف!")
 
 # =========================================================================
-# 2. شاشة ما بعد تسجيل الدخول (أو بعد إنشاء الحساب مباشرة)
+# 2. شاشة ما بعد تسجيل الدخول (لا يدخلها سوى الأدمن فقط)
 # =========================================================================
 else:
     user_phone = st.session_state["logged_in_user"]
     user_data = st.session_state["users"][user_phone]
     
-    # الهيدر المخصص بعد الدخول (زر الدولار للأدمن فوق على الشمال خالص)
-    if user_data.get("is_admin", False):
-        head_c1, head_c2 = st.columns([7, 3])
-        head_c1.title("🚗 تفريغ الريكوردات")
-        if head_c2.button("💲 إدارة المشتركين", use_container_width=True):
-            st.session_state["show_admin_dashboard"] = not st.session_state["show_admin_dashboard"]
-    else:
-        st.title("🚗 تفريغ الريكوردات")
+    # حماية إضافية: إذا لم يكن أدمن، يتم طرده فوراً
+    if not user_data.get("is_admin", False):
+        st.session_state["logged_in_user"] = None
+        st.rerun()
 
-    # زر تسجيل الخروج ومعلومات الحساب
+    head_c1, head_c2 = st.columns([7, 3])
+    head_c1.title("🚗 تفريغ الريكوردات")
+    if head_c2.button("💲 إدارة المشتركين", use_container_width=True):
+        st.session_state["show_admin_dashboard"] = not st.session_state["show_admin_dashboard"]
+
     col_out1, col_out2 = st.columns([3, 1])
-    col_out1.write(f"مرحباً بك، **{user_data['name']}**")
+    col_out1.write(f"مرحباً بك يا أدمن، **{user_data['name']}** (أنت الوحيد المخول بالدخول حالياً)")
     if col_out2.button("تسجيل الخروج"):
         st.session_state["logged_in_user"] = None
         st.session_state["login_time"] = None
@@ -148,9 +143,9 @@ else:
         
     st.divider()
 
-    # --- لوحة التحكم الخاصة بالأدمن ---
+    # --- لوحة تحكم الأدمن الشاملة ---
     if user_data.get("is_admin", False) and st.session_state["show_admin_dashboard"]:
-        st.info("📊 **لوحة تحكم الأدمن الشاملة (إحصائيات ومتابعة الحسابات الجديدة)**")
+        st.info("📊 **لوحة تحكم الأدمن (متابعة الحسابات المسجلة أثناء الصيانة)**")
         
         users_list = st.session_state["users"]
         total_registered = len(users_list) - 1
@@ -159,19 +154,19 @@ else:
 
         stat1, stat2, stat3 = st.columns(3)
         stat1.metric("👥 إجمالي الحسابات المسجلة", f"{total_registered} حساب")
-        stat2.metric("⏳ حسابات بانتظار التفعيل", f"{pending_users} عميل")
+        stat2.metric("⏳ بانتظار الإطلاق / التفعيل", f"{pending_users} عميل")
         stat3.metric("✅ الاشتراكات النشطة", f"{active_subscribers} مشترك")
         st.markdown("---")
         
-        admin_tab1, admin_tab2 = st.tabs(["➕ إضافة وتفعيل مشترك يدوياً", "📋 قائمة كافة الحسابات المسجلة والجديدة"])
+        admin_tab1, admin_tab2 = st.tabs(["➕ إضافة وتفعيل مشترك يدوياً", "📋 قائمة كافة الحسابات المسجلة"])
         
         with admin_tab1:
             st.subheader("إنشاء وتفعيل مشترك جديد بأسعار تلقائية")
-            an_name = st.text_input("اسم المشترك", key="an_name")
+            an_name = st.text_input("اسم المشترك الكامل", key="an_name")
             an_code = st.selectbox("الدولة وعملة السعر", ["مصر (+20) - جنيه", "السعودية (+966) - ريال"], key="an_code")
             an_prefix = "+20" if "مصر" in an_code else "+966"
             an_phone = st.text_input("رقم الهاتف", key="an_phone")
-            an_pass = st.text_input("كلمة السر (التي ستعطيها للعميل)", key="an_pass")
+            an_pass = st.text_input("كلمة السر", key="an_pass", value="123456")
             
             col_a, col_b = st.columns(2)
             an_type = col_a.selectbox("نوع الاشتراك", ["دفع كاش / فودافون كاش 💳", "تفعيل مجاني 🎁"], key="an_type")
@@ -184,12 +179,12 @@ else:
                 calculated_amount = 0 if "مجاني" in an_type else (150 * an_months)
                 currency_label = "ريال سعودي"
                 
-            st.info(f"💵 **المبلغ الاجمالي المحسوب أوتوماتيكياً:** `{calculated_amount} {currency_label}` (بواقع {an_months} شهر)")
+            st.info(f"💵 **المبلغ الإجمالي المحسوب أوتوماتيكياً:** `{calculated_amount} {currency_label}` (بواقع {an_months} شهر)")
             
             if st.button("✨ إنشاء وتفعيل الحساب فوراً", use_container_width=True, type="primary"):
                 full_an_phone = f"{an_prefix}{an_phone.strip()}"
-                if not an_name or not an_phone or not an_pass:
-                    st.error("يرجى إكمال الاسم ورقم الهاتف وكلمة السر!")
+                if not an_name or not an_phone:
+                    st.error("يرجى إكمال اسم المشترك ورقم الهاتف!")
                 elif full_an_phone in st.session_state["users"]:
                     st.warning("هذا الرقم مسجل بالفعل!")
                 else:
@@ -205,18 +200,17 @@ else:
                         "amount_paid": calculated_amount,
                         "expiry_date": exp_dt.strftime("%Y-%m-%d")
                     }
-                    st.success(f"تم إنشاء وتفعيل حساب ({an_name}) بمبلغ {calculated_amount} {currency_label} بنجاح!")
+                    st.success(f"تم إنشاء وتفعيل حساب ({an_name}) بنجاح!")
                     st.rerun()
 
         with admin_tab2:
-            st.caption("هنا تظهر كل الحسابات التي قام المستخدمون بتسجيلها في الموقع فوراً:")
+            st.caption("قائمة العملاء الذين سجلوا أسماءهم وأرقامهم أثناء فترة الصيانة:")
             for phone, data in users_list.items():
                 if not data.get("is_admin", False):
-                    status_icon = "✅ مفعل" if data['active'] else "⏳ جديد (بانتظار التفعيل)"
-                    with st.expander(f"👤 {data['name']} ({phone}) — الحالة: {status_icon}"):
+                    status_icon = "✅ مفعل" if data['active'] else "⏳ مسجل حديثاً (بانتظار الإطلاق)"
+                    with st.expander(f"👤 الاسم: {data['name']} | الرقم: ({phone}) — الحالة: {status_icon}"):
                         st.write(f"**حالة الاشتراك:** {data.get('sub_type', 'غير محدد')}")
                         st.write(f"**المبلغ المدفوع:** {data.get('amount_paid', 0)}")
-                        st.write(f"**تاريخ الانتهاء:** {data.get('expiry_date', 'غير محدد')}")
                         
                         col_act1, col_act2 = st.columns(2)
                         if not data['active']:
@@ -234,43 +228,21 @@ else:
                             st.rerun()
         st.divider()
 
-    # --- واجهة التطبيق الاعتيادية للمستخدم (أو الأدمن) ---
-    if not user_data["active"]:
-        st.warning("⚠️ اشتراكك غير مفعل حالياً! تم تسجيل حسابك بنجاح في المنصة.")
-        
-        # صندوق تفاصيل الدفع والتحويل بوضوح للعميل
-        st.info("""
-        ### 💳 تفاصيل الدفع والاشتراك:
-        * **طرق الدفع المتاحة:** فودافون كاش / تحويل مباشر.
-        * **رقم التحويل (فودافون كاش):** `01006820162`
-        * **قيمة الاشتراك:** 
-          * داخل مصر: **2,080 جنيه مصري / شهر**
-          * داخل السعودية: **150 ريال سعودي / شهر**
-        
-        ---
-        ### 📲 خطوات تفعيل الحساب فوراً:
-        1. قم بتحويل قيمة الاشتراك عبر **فودافون كاش** إلى الرقم: `01006820162`.
-        2. اضغط على الزر أدناه لإرسال رسالة واتساب مرفقة بـ **"صورة سكرين شوت التحويل"** ورقم حسابك لتفعيل الخدمة فوراً:
-        """)
-        
-        wa_url = f"https://wa.me/201006820162?text=مرحباً%20زياد،%20لقد قمت بتحويل مبلغ الاشتراك عبر فودافون كاش وارسلت سكرين التحويل لتفعيل حسابي. رقمي المسجل هو: {user_phone}"
-        st.link_button("📲 إرسال سكرين التحويل والتفعيل عبر واتساب", wa_url, use_container_width=True)
-    else:
-        st.success(f"✅ حسابك مفعل ومتاح حتى: {user_data.get('expiry_date', 'دائم')}")
-        
-        st.subheader("📄 تطبيق التشييك وتفريغ الريكوردات")
-        excel_file = st.file_uploader("1️⃣ اختر ملف التشييك (Excel)", type=["xlsx", "xls"])
-        audio_file = st.file_uploader("2️⃣ اختر الريكورد الصوتي", type=["mp3", "wav", "m4a", "ogg"])
-        
-        if st.button("🚀 بدء المعالجة وتفريغ الملف", use_container_width=True):
-            if excel_file and audio_file:
-                st.success("تمت المعالجة بنجاح!")
-                st.download_button(
-                    label="⬇️ تحميل ملف التشييك المكتمل (Excel)",
-                    data=excel_file.getvalue(),
-                    file_name="ملف_التشييك_المكتمل.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            else:
-                st.error("يرجى رفع ملف الإكسيل والريكورد الصوتي أولاً")
+    # شاشة الأدمن الخاصة بتفريغ الريكوردات
+    st.success("🛠️ **أنت في لوحة التحكم الخاصة بك كأدمن.**")
+    st.subheader("📄 تطبيق التشييك وتفريغ الريكوردات")
+    excel_file = st.file_uploader("1️⃣ اختر ملف التشييك (Excel)", type=["xlsx", "xls"])
+    audio_file = st.file_uploader("2️⃣ اختر الريكورد الصوتي", type=["mp3", "wav", "m4a", "ogg"])
+    
+    if st.button("🚀 بدء المعالجة وتفريغ الملف", use_container_width=True):
+        if excel_file and audio_file:
+            st.success("تمت المعالجة بنجاح!")
+            st.download_button(
+                label="⬇️ تحميل ملف التشييك المكتمل (Excel)",
+                data=excel_file.getvalue(),
+                file_name="ملف_التشييك_المكتمل.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        else:
+            st.error("يرجى رفع ملف الإكسيل والريكورد الصوتي أولاً")
