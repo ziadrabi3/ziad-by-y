@@ -1,26 +1,21 @@
 import streamlit as st
+from datetime import datetime, timedelta
 
 # إعدادات الصفحة
-st.set_page_config(
-    page_title="Ziad By Y | الأدمن والتطبيق", 
-    page_icon="🚗", 
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Ziad By Y", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
 
-# --- إخفاء أي عناصر خارجية لإبقاء الواجهة نظيفة تماماً ---
+# إخفاء العناصر غير الضرورية
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             header {visibility: hidden;}
             footer {visibility: hidden;}
             [data-testid="stSidebar"] {display: none;}
-            [data-testid="collapsedControl"] {display: none;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# تهيئة قاعدة البيانات المؤقتة في الجلسة (Session State)
+# قاعدة بيانات مؤقتة للحسابات
 if "users" not in st.session_state:
     st.session_state["users"] = {
         "+201006820162": {
@@ -28,153 +23,157 @@ if "users" not in st.session_state:
             "email": "admin@ziad.com",
             "password": "ziad492008",
             "active": True,
-            "is_admin": True
+            "is_admin": True,
+            "sub_type": "مدير النظام",
+            "months": 12,
+            "amount_paid": 0,
+            "expiry_date": "دائم"
         }
     }
 
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 
-# --- زر اختصار المخفي في الأعلى بالرمز Z للأدمن ---
-col_head1, col_head2 = st.columns([8, 2])
-with col_head1:
-    st.title("🚗 تطبيق زياد باي واي")
-with col_head2:
-    if st.button("👑 Z", help="لوحة تسجيل دخول الأدمن"):
-        st.session_state["show_admin_login"] = not st.session_state.get("show_admin_login", False)
+if "show_admin_dashboard" not in st.session_state:
+    st.session_state["show_admin_dashboard"] = False
 
-# --- شاشة دخول الأدمن المخفية المخصصة برقمك ورامزك ---
-if st.session_state.get("show_admin_login", False):
-    st.info("🔐 **منطقة تسجيل دخول الأدمن الخاصة**")
-    admin_phone = st.text_input("رقم هاتف الأدمن (بدون الصفر الأول)", value="1006820162", key="admin_p")
-    admin_pass = st.text_input("رمز مرور الأدمن الخاص", type="password", key="admin_pwd")
-    
-    if st.button("دخول الأدمن 🚀", use_container_width=True):
-        full_admin_phone = f"+20{admin_phone.strip()}"
-        if full_admin_phone in st.session_state["users"] and st.session_state["users"][full_admin_phone]["password"] == admin_pass:
-            st.session_state["logged_in_user"] = full_admin_phone
-            st.session_state["show_admin_login"] = False
-            st.success("تم تسجيل دخول الأدمن بنجاح!")
-            st.rerun()
-        else:
-            st.error("رقم الأدمن أو رمز المرور غير صحيح")
-    st.divider()
-
-# --- الشاشة الرئيسية: تسجيل الدخول / إنشاء حساب للمستخدمين العاديين ---
+# =========================================================================
+# 1. شاشة ما قبل تسجيل الدخول (يظهر فيها زر 👑 Z القديم)
+# =========================================================================
 if not st.session_state["logged_in_user"]:
+    col_head1, col_head2 = st.columns([8, 2])
+    with col_head1:
+        st.title("🚗 تطبيق زياد باي واي")
+    with col_head2:
+        if st.button("👑 Z", help="دخول الأدمن"):
+            st.session_state["show_admin_login"] = not st.session_state.get("show_admin_login", False)
+
+    # نموذج دخول الأدمن عبر زر Z
+    if st.session_state.get("show_admin_login", False):
+        st.info("🔐 **تسجيل دخول الأدمن**")
+        admin_phone = st.text_input("رقم هاتف الأدمن (بدون الصفر)", value="1006820162", key="ap")
+        admin_pass = st.text_input("كلمة السر", type="password", key="appwd")
+        
+        if st.button("دخول كأدمن 🚀", use_container_width=True):
+            full_ap = f"+20{admin_phone.strip()}"
+            if full_ap in st.session_state["users"] and st.session_state["users"][full_ap]["password"] == admin_pass:
+                st.session_state["logged_in_user"] = full_ap
+                st.session_state["show_admin_login"] = False
+                st.success("تم تسجيل الدخول بنجاح!")
+                st.rerun()
+            else:
+                st.error("رقم الهاتف أو كلمة السر غير صحيحة")
+        st.divider()
+
+    # تبويبات الدخول وإنشاء الحساب للعملاء
     tab1, tab2 = st.tabs(["تسجيل الدخول", "إنشاء حساب جديد"])
     
     with tab1:
         st.subheader("تسجيل دخول العملاء")
-        country_code_login = st.selectbox("الدولة", ["مصر (+20)", "السعودية (+966)"], key="c_login")
-        code_prefix_login = "+20" if "مصر" in country_code_login else "+966"
-        
-        phone_input = st.text_input("رقم الهاتف (بدون الصفر الأول)", key="login_phone")
-        full_phone_login = f"{code_prefix_login}{phone_input.strip()}"
-        
-        login_pass = st.text_input("كلمة السر", type="password", key="login_pass")
+        c_code = st.selectbox("الدولة", ["مصر (+20)", "السعودية (+966)"], key="cl")
+        prefix = "+20" if "مصر" in c_code else "+966"
+        phone_in = st.text_input("رقم الهاتف", key="pli")
+        pass_in = st.text_input("كلمة السر", type="password", key="pwi")
         
         if st.button("دخول", use_container_width=True):
-            users = st.session_state["users"]
-            if full_phone_login in users and users[full_phone_login]["password"] == login_pass:
-                st.session_state["logged_in_user"] = full_phone_login
+            full_p = f"{prefix}{phone_in.strip()}"
+            if full_p in st.session_state["users"] and st.session_state["users"][full_p]["password"] == pass_in:
+                st.session_state["logged_in_user"] = full_p
                 st.rerun()
             else:
-                st.error("رقم الهاتف أو كلمة السر غير صحيحة")
+                st.error("بيانات الدخول غير صحيحة")
                 
     with tab2:
         st.subheader("إنشاء حساب جديد")
         new_name = st.text_input("الاسم بالكامل")
-        
-        country_code_reg = st.selectbox("الدولة", ["مصر (+20)", "السعودية (+966)"], key="c_reg")
-        code_prefix_reg = "+20" if "مصر" in country_code_reg else "+966"
-        
-        reg_phone_input = st.text_input("رقم الهاتف (مثال: 1xxxxxxx لمصر أو 5xxxxxxx للسعودية)")
-        full_phone_reg = f"{code_prefix_reg}{reg_phone_input.strip()}"
-        
+        r_code = st.selectbox("الدولة", ["مصر (+20)", "السعودية (+966)"], key="cr")
+        r_prefix = "+20" if "مصر" in r_code else "+966"
+        r_phone = st.text_input("رقم الهاتف", key="rpi")
         new_email = st.text_input("البريد الإلكتروني")
-        new_pass = st.text_input("كلمة السر الخاصة بك", type="password")
+        new_pass = st.text_input("كلمة السر", type="password", key="rwi")
         
         if st.button("إنشاء الحساب", use_container_width=True):
-            if not reg_phone_input:
-                st.error("يرجى إدخال رقم الهاتف")
-            elif full_phone_reg in st.session_state["users"]:
-                st.warning("هذا الرقم مسجل بالفعل!")
-            elif new_name and new_email and new_pass:
-                st.session_state["users"][full_phone_reg] = {
-                    "name": new_name,
-                    "email": new_email,
-                    "password": new_pass,
-                    "active": False, # الحساب ينشأ غير مفعل للعميل
-                    "is_admin": False
+            full_rp = f"{r_prefix}{r_phone.strip()}"
+            if full_rp in st.session_state["users"]:
+                st.warning("هذا الرقم مسجل مسبقاً!")
+            elif new_name and r_phone and new_pass:
+                st.session_state["users"][full_rp] = {
+                    "name": new_name, "email": new_email, "password": new_pass,
+                    "active": False, "is_admin": False, "sub_type": "غير مفعل",
+                    "months": 0, "amount_paid": 0, "expiry_date": "غير محدد"
                 }
-                st.success("تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول لتفعيل الاشتراك.")
+                st.success("تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن.")
             else:
-                st.error("يرجى ملء جميع البيانات المطلوبة")
+                st.error("يرجى إكمال جميع البيانات المطلوبة")
 
-# --- شاشة ما بعد تسجيل الدخول (للأدمن أو للعميل) ---
+# =========================================================================
+# 2. شاشة ما بعد تسجيل الدخول (يظهر فيها زر الدولار 💲 فوق خالص على الشمال للأدمن)
+# =========================================================================
 else:
     user_phone = st.session_state["logged_in_user"]
     user_data = st.session_state["users"][user_phone]
     
+    # الهيدر المخصص بعد الدخول (العنوان يمين، وزر 💲 فوق على الشمال خالص لو كان الأدمن)
+    if user_data.get("is_admin", False):
+        head_c1, head_c2 = st.columns([7, 3])
+        head_c1.title("🚗 تفريغ الريكوردات")
+        if head_c2.button("💲 إدارة المشتركين", use_container_width=True):
+            st.session_state["show_admin_dashboard"] = not st.session_state["show_admin_dashboard"]
+    else:
+        st.title("🚗 تفريغ الريكوردات")
+
+    # زر تسجيل الخروج ومعلومات الحساب
     col_out1, col_out2 = st.columns([3, 1])
-    col_out1.write(f"مرحباً بك، **{user_data['name']}** (`{user_phone}`)")
+    col_out1.write(f"مرحباً بك، **{user_data['name']}**")
     if col_out2.button("تسجيل الخروج"):
         st.session_state["logged_in_user"] = None
+        st.session_state["show_admin_dashboard"] = False
         st.rerun()
         
     st.divider()
 
-    # لوحة تحكم الأدمن (تظهر فقط لو سجلت بحساب الأدمن)
-    if user_data.get("is_admin", False):
-        st.subheader("👑 لوحة إدارة المشتركين وتفعيل الحسابات (خاصة بزياد)")
+    # --- لوحة التحكم الخاصة بالأدمن (تفتح عند الضغط على زر 💲 فوق) ---
+    if user_data.get("is_admin", False) and st.session_state["show_admin_dashboard"]:
+        st.info("📊 **لوحة تحكم المشتركين وإدارة الاشتراكات**")
         
         users_list = st.session_state["users"]
         for phone, data in users_list.items():
-            if phone != user_phone: # عدم تعديل حساب الأدمن الرئيسي
-                c1, c2, c3 = st.columns([2, 2, 1])
-                c1.write(f"**الاسم:** {data['name']}\n\n**الرقم:** `{phone}`")
-                c2.write(f"**الإيميل:** {data['email']}")
-                
-                if data["active"]:
-                    if c3.button("إيقاف الحساب", key=f"deact_{phone}"):
-                        data["active"] = False
-                        st.success(f"تم إيقاف حساب {data['name']}")
-                        st.rerun()
-                else:
-                    if c3.button("تفعيل الاشتراك 🚀", key=f"act_{phone}"):
+            if not data.get("is_admin", False):
+                with st.expander(f"👤 {data['name']} ({phone}) — {'✅ مفعل' if data['active'] else '❌ غير مفعل'}"):
+                    st.write(f"النوع الحالي: {data.get('sub_type', 'غير محدد')} | ينتهي في: {data.get('expiry_date', 'غير محدد')}")
+                    
+                    sub_col1, sub_col2 = st.columns(2)
+                    chosen_type = sub_col1.selectbox("نوع الاشتراك", ["اشتراك مدفوع 💳", "اشتراك مجاني 🎁"], key=f"st_{phone}")
+                    chosen_months = sub_col2.number_input("عدد الشهور", min_value=1, max_value=24, value=1, key=f"sm_{phone}")
+                    paid_money = st.number_input("المبلغ المحول", value=0 if "مجاني" in chosen_type else 2080, key=f"pm_{phone}")
+                    
+                    btn_act, btn_deact = st.columns(2)
+                    if btn_act.button("✅ تفعيل الحساب وتحديد المدة", key=f"act_b_{phone}", use_container_width=True):
                         data["active"] = True
-                        st.success(f"تم تفعيل حساب {data['name']}")
+                        data["sub_type"] = chosen_type
+                        data["months"] = chosen_months
+                        data["amount_paid"] = paid_money
+                        exp_dt = datetime.now() + timedelta(days=30 * chosen_months)
+                        data["expiry_date"] = exp_dt.strftime("%Y-%m-%d")
+                        st.success(f"تم تفعيل حساب {data['name']} بنجاح!")
+                        st.rerun()
+                        
+                    if btn_deact.button("🚫 إيقاف الحساب", key=f"deact_b_{phone}", use_container_width=True):
+                        data["active"] = False
+                        data["sub_type"] = "متوقف"
+                        st.warning(f"تم إيقاف حساب {data['name']}")
                         st.rerun()
         st.divider()
 
-    # التحقق من حالة الاشتراك للعميل العادي
+    # --- واجهة التطبيق الاعتيادية للمستخدم (أو الأدمن) ---
     if not user_data["active"]:
         st.warning("⚠️ اشتراكك غير مفعل حالياً!")
-        st.info("""
-        ### 💰 قيمة الاشتراك:
-        * **150 ريال سعودي** (أو **2,080 جنيه مصري** للتحويل من داخل مصر).
-        
-        ---
-        ### 💳 طرق الدفع والتحويل:
-        * **داخل مصر (فودافون كاش):**
-          * رقم التحويل: `01006820162`
-        * **داخل السعودية (حساب بنكي / STC Pay):**
-          * يرجى التواصل معنا للحصول على بيانات الحساب البنكي المباشر.
-        
-        ---
-        ### 📲 خطوات التفعيل:
-        1. قم بتمويل الاشتراك عبر فودافون كاش أو الحساب البنكي.
-        2. اضغط على الزر بالأسفل لإرسال صورة التحويل ورقم حسابك لتفعيل الخدمة فوراً:
-        """)
-        
-        wa_url = f"https://wa.me/201006820162?text=مرحباً،%20قمت%20بتحويل%20رسوم%20الاشتراك%20لتطبيق%20زياد%20باي%20واي.%20رقمي%20المسجل:%20{user_phone}"
-        st.link_button("📲 التواصل عبر واتساب لتأكيد التحويل والتفعيل", wa_url, use_container_width=True)
-        
+        st.info("قيمة الاشتراك: 150 ريال سعودي (أو 2,080 جنيه مصري).")
+        wa_url = f"https://wa.me/201006820162?text=مرحباً%20أريد%20تفعيل%20حسابي%20لرقم:%20{user_phone}"
+        st.link_button("📲 التواصل عبر واتساب لتأكيد الدفع والتفعيل", wa_url, use_container_width=True)
     else:
-        st.success("✅ الخدمة متاحة ومفعلة!")
+        st.success(f"✅ حسابك مفعل ومتاح حتى: {user_data.get('expiry_date', 'دائم')}")
         
-        # --- واجهة التطبيق الرئيسية (تفريغ الملفات والريكورد) ---
         st.subheader("📄 تطبيق التشييك وتفريغ الريكوردات")
         excel_file = st.file_uploader("1️⃣ اختر ملف التشييك (Excel)", type=["xlsx", "xls"])
         audio_file = st.file_uploader("2️⃣ اختر الريكورد الصوتي", type=["mp3", "wav", "m4a", "ogg"])
