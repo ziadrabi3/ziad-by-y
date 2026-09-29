@@ -15,7 +15,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# قاعدة بيانات مؤقتة للحسابات
+# قاعدة بيانات مؤقتة للحسابات (تستوعب بلا حدود)
 if "users" not in st.session_state:
     st.session_state["users"] = {
         "+201006820162": {
@@ -109,9 +109,10 @@ if not st.session_state["logged_in_user"]:
             if full_rp in st.session_state["users"]:
                 st.warning("هذا الرقم مسجل مسبقاً! قم بتسجيل الدخول مباشرة.")
             elif new_name and r_phone and new_pass:
+                # تسجيل الحساب الجديد في النظام فوراً ليرى الأدمن أن شخصاً سجل حساباً
                 st.session_state["users"][full_rp] = {
                     "name": new_name, "email": new_email, "password": new_pass,
-                    "active": False, "is_admin": False, "sub_type": "غير مفعل",
+                    "active": False, "is_admin": False, "sub_type": "في انتظار التفعيل (سجل حديثاً)",
                     "months": 0, "amount_paid": 0, "expiry_date": "غير محدد"
                 }
                 # إدخال العميل تلقائياً للموقع فور إنشائه للحساب
@@ -129,7 +130,7 @@ else:
     user_phone = st.session_state["logged_in_user"]
     user_data = st.session_state["users"][user_phone]
     
-    # الهيدر المخصص بعد الدخول
+    # الهيدر المخصص بعد الدخول (زر الدولار للأدمن فوق على الشمال خالص)
     if user_data.get("is_admin", False):
         head_c1, head_c2 = st.columns([7, 3])
         head_c1.title("🚗 تفريغ الريكوردات")
@@ -149,11 +150,25 @@ else:
         
     st.divider()
 
-    # --- لوحة التحكم الخاصة بالأدمن ---
+    # --- لوحة التحكم الخاصة بالأدمن (إحصائيات شاملة + إدارة المشتركين والحسابات الجديدة) ---
     if user_data.get("is_admin", False) and st.session_state["show_admin_dashboard"]:
-        st.info("📊 **لوحة تحكم المشتركين وإدارة الاشتراكات التلقائية**")
+        st.info("📊 **لوحة تحكم الأدمن الشاملة (إحصائيات ومتابعة الحسابات الجديدة)**")
         
-        admin_tab1, admin_tab2 = st.tabs(["➕ إضافة مشترك يدوياً (تفعيل فوري)", "📋 إدارة المشتركين الحاليين"])
+        # حساب إحصائيات الحسابات والزوار المسجلين بدقة
+        users_list = st.session_state["users"]
+        total_registered = len(users_list) - 1  # بدون حساب الأدمن
+        pending_users = sum(1 for p, d in users_list.items() if not d.get("active") and not d.get("is_admin"))
+        active_subscribers = sum(1 for p, d in users_list.items() if d.get("active") and not d.get("is_admin"))
+        total_revenue_egp = sum(d.get("amount_paid", 0) for p, d in users_list.items() if "جنيه" in str(d.get("sub_type", "")) or d.get("amount_paid", 0) > 200)
+
+        # عرض إحصائيات سريعة وواضحة للأدمن
+        stat1, stat2, stat3 = st.columns(3)
+        stat1.metric("👥 إجمالي الحسابات المسجلة", f"{total_registered} حساب")
+        stat2.metric("⏳ حسابات بانتظار التفعيل", f"{pending_users} عميل")
+        stat3.metric("✅ الاشتراكات النشطة", f"{active_subscribers} مشترك")
+        st.markdown("---")
+        
+        admin_tab1, admin_tab2 = st.tabs(["➕ إضافة وتفعيل مشترك يدوياً", "📋 قائمة كافة الحسابات المسجلة والجديدة"])
         
         with admin_tab1:
             st.subheader("إنشاء وتفعيل مشترك جديد بأسعار تلقائية")
@@ -200,13 +215,25 @@ else:
                     st.rerun()
 
         with admin_tab2:
-            users_list = st.session_state["users"]
+            st.caption("هنا تظهر كل الحسابات التي قام المستخدمون بتسجيلها في الموقع فوراً:")
             for phone, data in users_list.items():
                 if not data.get("is_admin", False):
-                    with st.expander(f"👤 {data['name']} ({phone}) — {'✅ مفعل' if data['active'] else '❌ غير مفعل'}"):
-                        st.write(f"النوع الحالي: {data.get('sub_type', 'غير محدد')} | مدفوع: {data.get('amount_paid', 0)} | ينتهي في: {data.get('expiry_date', 'غير محدد')}")
+                    status_icon = "✅ مفعل" if data['active'] else "⏳ جديد (بانتظار التفعيل)"
+                    with st.expander(f"👤 {data['name']} ({phone}) — الحالة: {status_icon}"):
+                        st.write(f"**حالة الاشتراك:** {data.get('sub_type', 'غير محدد')}")
+                        st.write(f"**المبلغ المدفوع:** {data.get('amount_paid', 0)}")
+                        st.write(f"**تاريخ الانتهاء:** {data.get('expiry_date', 'غير محدد')}")
                         
-                        if st.button("🚫 إيقاف الحساب", key=f"deact_b_{phone}", use_container_width=True):
+                        col_act1, col_act2 = st.columns(2)
+                        if not data['active']:
+                            if col_act1.button("✅ تفعيل الحساب الآن", key=f"quick_act_{phone}", use_container_width=True):
+                                data['active'] = True
+                                data['sub_type'] = "تم التفعيل بواسطة الأدمن"
+                                data['expiry_date'] = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+                                st.success(f"تم تفعيل حساب {data['name']} بنجاح!")
+                                st.rerun()
+                        
+                        if col_act2.button("🚫 إيقاف / حذف الحساب", key=f"deact_b_{phone}", use_container_width=True):
                             data["active"] = False
                             data["sub_type"] = "متوقف"
                             st.warning(f"تم إيقاف حساب {data['name']}")
@@ -215,9 +242,9 @@ else:
 
     # --- واجهة التطبيق الاعتيادية للمستخدم (أو الأدمن) ---
     if not user_data["active"]:
-        st.warning("⚠️ اشتراكك غير مفعل حالياً!")
+        st.warning("⚠️ اشتراكك غير مفعل حالياً! تم تسجيل حسابك بنجاح، يرجى التواصل مع الإدارة لتفعيل الخدمة.")
         st.info("قيمة الاشتراك: 150 ريال سعودي أو 2,080 جنيه مصري للشهر الواحد.")
-        wa_url = f"https://wa.me/201006820162?text=مرحباً%20أريد%20تفعيل%20حسابي%20لرقم:%20{user_phone}"
+        wa_url = f"https://wa.me/201006820162?text=مرحباً%20لقد%20سجلت%20حساباً%20جديداً%20وأريد%20تفعيل%20حسابي%20لرقم:%20{user_phone}"
         st.link_button("📲 التواصل عبر واتساب لتأكيد الدفع والتفعيل", wa_url, use_container_width=True)
     else:
         st.success(f"✅ حسابك مفعل ومتاح حتى: {user_data.get('expiry_date', 'دائم')}")
